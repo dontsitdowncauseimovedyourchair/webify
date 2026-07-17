@@ -1,5 +1,5 @@
 class HTMLNode:
-    def __init__(self, tag = None, value = None, children=None, props=None):
+    def __init__(self, tag: str = None, value: str = None, children: list=None, props: dict=None):
         if props is None:
             props = {}
         if children is None:
@@ -34,3 +34,21 @@ class HTMLNode:
         else:
             return f"<{self.tag if self.tag else ""}{" " + format_props if format_props else ""}>{self.value if self.value else ""}</{self.tag if self.tag else ""}>"
 
+
+
+
+class LeafNode(HTMLNode):
+    def __init__(self, tag: str, value: str, props: dict = None):
+        super().__init__(tag, value, props=props)
+
+    def to_html(self):
+        if not self.value:
+            raise ValueError("All leaf nodes must have a value")
+        if not self.tag:
+            return self.value
+
+        formatted_props = super().props_to_html()
+        return f"<{self.tag}{" " + formatted_props if formatted_props else ""}>{self.value}</{self.tag}>"
+
+    def __repr__(self):
+        super.__repr__()
