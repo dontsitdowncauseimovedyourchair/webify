@@ -89,7 +89,6 @@ def markdown_to_raw_lines(block: str, block_type: BlockType) -> list[str]:
             out = list(map(lambda line: line.split(" ", maxsplit=1)[1], lines))
     return out
 
-
 def block_to_html_node(block: str, block_type: BlockType) -> HTMLNode:
     match block_type:
         case BlockType.PARAGRAPH:

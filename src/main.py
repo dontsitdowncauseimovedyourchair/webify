@@ -1,9 +1,7 @@
-from textnode import TextNode, TextType
-
+from directory_functions import copy_from_static_to_public
 
 def main():
-    node = TextNode("Super interesting text", TextType.TEXT, "https://flop.com")
-    print(node)
+    copy_from_static_to_public()
 
 if __name__ == "__main__":
     main()
