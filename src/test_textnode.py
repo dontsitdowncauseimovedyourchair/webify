@@ -1,5 +1,5 @@
 import unittest
-from textnode import TextNode, TextType, text_node_to_html_node
+from textnode import TextNode, TextType, text_node_to_html_node, split_nodes_delimiter
 from leafnode import LeafNode
 
 class TestTextNode(unittest.TestCase):
@@ -127,6 +127,87 @@ class TestTextNode(unittest.TestCase):
         node.text_type = "not a real type"
         with self.assertRaises(AttributeError):
             text_node_to_html_node(node)
+
+class TestSplitNodesDelimiter(unittest.TestCase):
+    def test_split_nodes_code(self):
+        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(new_nodes, [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("code block", TextType.CODE),
+            TextNode(" word", TextType.TEXT),
+        ])
+
+    def test_code_in_middle(self):
+        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(new_nodes, [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("code block", TextType.CODE),
+            TextNode(" word", TextType.TEXT),
+        ])
+
+    def test_bold_in_middle(self):
+        node = TextNode("This is **bold** text", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "**", TextType.BOLD)
+        self.assertEqual(new_nodes, [
+            TextNode("This is ", TextType.TEXT),
+            TextNode("bold", TextType.BOLD),
+            TextNode(" text", TextType.TEXT),
+        ])
+
+    def test_italic_in_middle(self):
+        node = TextNode("This is _italic_ text", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "_", TextType.ITALIC)
+        self.assertEqual(new_nodes, [
+            TextNode("This is ", TextType.TEXT),
+            TextNode("italic", TextType.ITALIC),
+            TextNode(" text", TextType.TEXT),
+        ])
+
+    def test_multiple_delimiter_pairs(self):
+        node = TextNode("a `b` c `d` e", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(new_nodes, [
+            TextNode("a ", TextType.TEXT),
+            TextNode("b", TextType.CODE),
+            TextNode(" c ", TextType.TEXT),
+            TextNode("d", TextType.CODE),
+            TextNode(" e", TextType.TEXT),
+        ])
+
+    def test_non_text_node_passes_through_unchanged(self):
+        node = TextNode("already bold", TextType.BOLD)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(new_nodes, [node])
+
+    def test_multiple_input_nodes(self):
+        nodes = [
+            TextNode("say `hi`", TextType.TEXT),
+            TextNode("stay bold", TextType.BOLD),
+            TextNode("and `bye`", TextType.TEXT),
+        ]
+        new_nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
+        self.assertEqual(new_nodes, [
+            TextNode("say ", TextType.TEXT),
+            TextNode("hi", TextType.CODE),
+            TextNode("", TextType.TEXT),
+            TextNode("stay bold", TextType.BOLD),
+            TextNode("and ", TextType.TEXT),
+            TextNode("bye", TextType.CODE),
+            TextNode("", TextType.TEXT),
+        ])
+
+    def test_plain_text_with_no_delimiter_unchanged(self):
+        node = TextNode("just plain text", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(new_nodes, [TextNode("just plain text", TextType.TEXT)])
+
+    def test_unmatched_delimiter_raises(self):
+        node = TextNode("this is `broken", TextType.TEXT)
+        with self.assertRaises(Exception):
+            split_nodes_delimiter([node], "`", TextType.CODE)
+
 
 if __name__ == "__main__":
     unittest.main()

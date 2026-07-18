@@ -39,3 +39,22 @@ def text_node_to_html_node(text_node: TextNode) -> LeafNode:
             return LeafNode("img", "", {"src": text_node.url, "alt": text_node.text})
         case _:
             raise AttributeError(f"Text node text type {text_node.text_type} comes from another universe, we don't do that here.")
+
+def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
+    out = []
+    for node in old_nodes:
+        if node.text_type == TextType.TEXT:
+            if node.text.count(delimiter) % 2 != 0:
+                raise Exception(f"No matching {delimiter} in LeafNode: {node.text}")
+
+            split_node = node.text.split(delimiter)
+
+            for i in range(len(split_node)):
+                if i % 2 == 1:
+                    out.append(TextNode(split_node[i], text_type))
+                else:
+                    out.append(TextNode(split_node[i], TextType.TEXT))
+        else:
+            out.append(node)
+
+    return out
