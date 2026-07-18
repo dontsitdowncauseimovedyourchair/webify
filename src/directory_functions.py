@@ -16,18 +16,15 @@ def list_files_and_dirs(dir_path):
             paths.append(fs_item_path)
     return paths
 
-def copy_from_static_to_public():
-    current_dir = Path(__file__).resolve().parent
-    public_dir = current_dir.parent / "public"
-    static_dir = current_dir.parent / "static"
-    if os.path.exists(public_dir):
-        shutil.rmtree(public_dir)
-    os.mkdir(public_dir)
+def copy_dir(src_path: Path, dest_path: Path):
+    if os.path.exists(dest_path):
+        shutil.rmtree(dest_path)
+    os.mkdir(dest_path)
 
-    files_dirs = list_files_and_dirs(static_dir)
+    files_dirs = list_files_and_dirs(src_path)
     for fs_item_path in files_dirs:
-        relative_dirname = os.path.relpath(fs_item_path, static_dir)
+        relative_dirname = os.path.relpath(fs_item_path, src_path)
         if os.path.isdir(fs_item_path):
-            os.mkdir(os.path.join(public_dir, relative_dirname))
+            os.mkdir(os.path.join(dest_path, relative_dirname))
         else:
-            shutil.copy(fs_item_path, os.path.join(public_dir, relative_dirname))
+            shutil.copy(fs_item_path, os.path.join(dest_path, relative_dirname))
