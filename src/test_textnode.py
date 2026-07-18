@@ -1,5 +1,6 @@
 import unittest
-from textnode import TextNode, TextType, text_node_to_html_node, split_nodes_delimiter
+from textnode import TextNode, TextType, text_node_to_html_node, split_nodes_delimiter, extract_markdown_images, \
+    extract_markdown_links, split_nodes_image, split_nodes_link
 from leafnode import LeafNode
 
 class TestTextNode(unittest.TestCase):
@@ -207,6 +208,232 @@ class TestSplitNodesDelimiter(unittest.TestCase):
         node = TextNode("this is `broken", TextType.TEXT)
         with self.assertRaises(Exception):
             split_nodes_delimiter([node], "`", TextType.CODE)
+
+
+class TestExtractMDImages(unittest.TestCase):
+    def test_extract_markdown_images(self):
+        matches = extract_markdown_images(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
+        )
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+
+    def test_single_image(self):
+        matches = extract_markdown_images("![alt text](https://boot.dev/img.png)")
+        self.assertListEqual([("alt text", "https://boot.dev/img.png")], matches)
+
+    def test_multiple_images(self):
+        text = "![one](https://a.com/1.png) and ![two](https://b.com/2.png)"
+        matches = extract_markdown_images(text)
+        self.assertListEqual(
+            [("one", "https://a.com/1.png"), ("two", "https://b.com/2.png")],
+            matches,
+        )
+
+    def test_no_images_returns_empty(self):
+        self.assertListEqual([], extract_markdown_images("no images here"))
+
+    def test_image_extraction_ignores_links(self):
+        # A plain link (no leading "!") must NOT be picked up as an image.
+        matches = extract_markdown_images("a [link](https://boot.dev) here")
+        self.assertListEqual([], matches)
+
+    def test_image_among_links(self):
+        text = "![img](https://a.com/i.png) and [link](https://b.com)"
+        matches = extract_markdown_images(text)
+        self.assertListEqual([("img", "https://a.com/i.png")], matches)
+
+    def test_image_empty_alt_and_url(self):
+        # Both capture groups allow zero characters.
+        matches = extract_markdown_images("![](  )")
+        self.assertListEqual([("", "  ")], matches)
+
+    def test_image_url_with_parens_not_matched(self):
+        # A "(" inside the url terminates the url group, so it fails to match.
+        matches = extract_markdown_images("![x](https://en.wikipedia.org/(y))")
+        self.assertListEqual([], matches)
+
+    def test_adjacent_images(self):
+        matches = extract_markdown_images("![a](1)![b](2)")
+        self.assertListEqual([("a", "1"), ("b", "2")], matches)
+
+
+class TestExtractMDLinks(unittest.TestCase):
+    def test_single_link(self):
+        matches = extract_markdown_links("This is a [link](https://boot.dev) here")
+        self.assertListEqual([("link", "https://boot.dev")], matches)
+
+    def test_multiple_links(self):
+        text = "[to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com)"
+        matches = extract_markdown_links(text)
+        self.assertListEqual(
+            [
+                ("to boot dev", "https://www.boot.dev"),
+                ("to youtube", "https://www.youtube.com"),
+            ],
+            matches,
+        )
+
+    def test_no_links_returns_empty(self):
+        self.assertListEqual([], extract_markdown_links("no links here"))
+
+    def test_link_extraction_ignores_images(self):
+        # An image (leading "!") must NOT be picked up as a link.
+        matches = extract_markdown_links("an ![image](https://a.com/i.png) here")
+        self.assertListEqual([], matches)
+
+    def test_link_among_images(self):
+        text = "![img](https://a.com/i.png) and [link](https://b.com)"
+        matches = extract_markdown_links(text)
+        self.assertListEqual([("link", "https://b.com")], matches)
+
+    def test_link_empty_anchor_and_url(self):
+        matches = extract_markdown_links("[]()")
+        self.assertListEqual([("", "")], matches)
+
+    def test_link_url_with_parens_not_matched(self):
+        matches = extract_markdown_links("[wiki](https://en.wikipedia.org/(y))")
+        self.assertListEqual([], matches)
+
+    def test_adjacent_links(self):
+        matches = extract_markdown_links("[a](1)[b](2)")
+        self.assertListEqual([("a", "1"), ("b", "2")], matches)
+
+    def test_bang_then_space_before_bracket_is_a_link(self):
+        # The "!" is not immediately before "[", so the lookbehind allows a match.
+        matches = extract_markdown_links("! [x](y)")
+        self.assertListEqual([("x", "y")], matches)
+
+class TestSplitImage(unittest.TestCase):
+    def test_split_images(self):
+        node = TextNode(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        print(new_nodes)
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and another ", TextType.TEXT),
+                TextNode(
+                    "second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"
+                ),
+            ],
+            new_nodes,
+        )
+
+    def test_single_image_in_middle(self):
+        node = TextNode("text ![img](https://a.com/i.png) end", TextType.TEXT)
+        self.assertListEqual(
+            [
+                TextNode("text ", TextType.TEXT),
+                TextNode("img", TextType.IMAGE, "https://a.com/i.png"),
+                TextNode(" end", TextType.TEXT),
+            ],
+            split_nodes_image([node]),
+        )
+
+    def test_image_at_start(self):
+        node = TextNode("![img](https://a.com/i.png) tail", TextType.TEXT)
+        self.assertListEqual(
+            [
+                TextNode("img", TextType.IMAGE, "https://a.com/i.png"),
+                TextNode(" tail", TextType.TEXT),
+            ],
+            split_nodes_image([node]),
+        )
+
+    def test_image_at_end_no_trailing_text(self):
+        node = TextNode("lead ![img](https://a.com/i.png)", TextType.TEXT)
+        self.assertListEqual(
+            [
+                TextNode("lead ", TextType.TEXT),
+                TextNode("img", TextType.IMAGE, "https://a.com/i.png"),
+            ],
+            split_nodes_image([node]),
+        )
+
+    def test_only_image_no_surrounding_text(self):
+        node = TextNode("![img](https://a.com/i.png)", TextType.TEXT)
+        self.assertListEqual(
+            [TextNode("img", TextType.IMAGE, "https://a.com/i.png")],
+            split_nodes_image([node]),
+        )
+
+    def test_no_images_returns_plain_text_node(self):
+        node = TextNode("just plain text", TextType.TEXT)
+        self.assertListEqual(
+            [TextNode("just plain text", TextType.TEXT)],
+            split_nodes_image([node]),
+        )
+
+    def test_multiple_input_nodes(self):
+        nodes = [
+            TextNode("a ![x](1) b", TextType.TEXT),
+            TextNode("no image here", TextType.TEXT),
+        ]
+        self.assertListEqual(
+            [
+                TextNode("a ", TextType.TEXT),
+                TextNode("x", TextType.IMAGE, "1"),
+                TextNode(" b", TextType.TEXT),
+                TextNode("no image here", TextType.TEXT),
+            ],
+            split_nodes_image(nodes),
+        )
+
+
+class TestSplitLink(unittest.TestCase):
+    def test_split_links(self):
+        node = TextNode(
+            "This is a [link](https://boot.dev) and [second](https://youtube.com)",
+            TextType.TEXT,
+        )
+        self.assertListEqual(
+            [
+                TextNode("This is a ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+                TextNode(" and ", TextType.TEXT),
+                TextNode("second", TextType.LINK, "https://youtube.com"),
+            ],
+            split_nodes_link([node]),
+        )
+
+    def test_single_link_in_middle(self):
+        node = TextNode("text [l](https://a.com) end", TextType.TEXT)
+        self.assertListEqual(
+            [
+                TextNode("text ", TextType.TEXT),
+                TextNode("l", TextType.LINK, "https://a.com"),
+                TextNode(" end", TextType.TEXT),
+            ],
+            split_nodes_link([node]),
+        )
+
+    def test_link_at_start(self):
+        node = TextNode("[l](https://a.com) tail", TextType.TEXT)
+        self.assertListEqual(
+            [
+                TextNode("l", TextType.LINK, "https://a.com"),
+                TextNode(" tail", TextType.TEXT),
+            ],
+            split_nodes_link([node]),
+        )
+
+    def test_only_link_no_surrounding_text(self):
+        node = TextNode("[l](https://a.com)", TextType.TEXT)
+        self.assertListEqual(
+            [TextNode("l", TextType.LINK, "https://a.com")],
+            split_nodes_link([node]),
+        )
+
+    def test_no_links_returns_plain_text_node(self):
+        node = TextNode("just plain text", TextType.TEXT)
+        self.assertListEqual(
+            [TextNode("just plain text", TextType.TEXT)],
+            split_nodes_link([node]),
+        )
 
 
 if __name__ == "__main__":

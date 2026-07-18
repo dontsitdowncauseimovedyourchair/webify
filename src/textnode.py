@@ -1,7 +1,7 @@
 from enum import Enum
 
 from leafnode import LeafNode
-
+import re
 
 class TextType(Enum):
     TEXT = "text"
@@ -58,3 +58,50 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
             out.append(node)
 
     return out
+
+
+def extract_markdown_images(text):
+    expression = r"!\[([^\[\]]*)\]\(([^\(\)]*)\)"
+    matches = re.findall(expression, text)
+    return matches
+
+def extract_markdown_links(text):
+    expression = r"(?<!!)\[([^\[\]]*)\]\(([^\(\)]*)\)" #ignores images using (?<!!). Two capture groups
+    matches = re.findall(expression, text)
+    return matches
+
+def split_nodes_splitter(old_nodes: list[TextNode], splitter_type: TextType)-> list[TextNode]:
+    out = []
+    for node in old_nodes:
+        splitters: list[tuple[str,str]] = []
+        splitter_pattern = ""
+        if splitter_type == TextType.IMAGE:
+            splitters = extract_markdown_images(node.text)
+            splitter_pattern = "![{}]({})"
+        elif splitter_type == TextType.LINK:
+            splitters = extract_markdown_links(node.text)
+            splitter_pattern = "[{}]({})"
+
+        if splitters:
+            node_text = node.text
+            for splitter in splitters:
+                cut_list = node_text.split(splitter_pattern.format(splitter[0], splitter[1]), maxsplit=1)
+                if cut_list[0]:
+                    out.append(TextNode(cut_list[0], TextType.TEXT))
+                out.append(TextNode(splitter[0], splitter_type, splitter[1]))
+                node_text = cut_list[1]
+
+            if node_text:
+                out.append(TextNode(node_text, TextType.TEXT))
+        else:
+            out.append(TextNode(node.text, TextType.TEXT))
+
+    return out
+
+
+
+def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
+    return split_nodes_splitter(old_nodes, TextType.IMAGE)
+
+def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
+    return split_nodes_splitter(old_nodes, TextType.LINK)
