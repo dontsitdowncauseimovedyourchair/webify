@@ -1,4 +1,5 @@
-from markdown_functions import markdown_to_blocks, block_to_block_type, BlockType, markdown_to_raw_lines, block_to_html_node
+from markdown_functions import markdown_to_blocks, block_to_block_type, BlockType, markdown_to_raw_lines, \
+    block_to_html_node, markdown_to_html_node
 import unittest
 
 
@@ -449,6 +450,145 @@ class TestBlockToHtmlNode(unittest.TestCase):
         self.assertEqual(
             node.to_html(),
             "<ol><li><b>a</b></li><li><i>b</i></li><li><code>c</code></li></ol>",
+        )
+
+class TestMarkdownToHTMLNode(unittest.TestCase):
+    def test_paragraphs(self):
+        md = """
+This is **bolded** paragraph
+text in a p
+tag here
+
+This is another paragraph with _italic_ text and `code` here
+
+    """
+
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><p>This is <b>bolded</b> paragraph\ntext in a p\ntag here</p><p>This is another paragraph with <i>italic</i> text and <code>code</code> here</p></div>",
+        )
+
+
+    def test_codeblock(self):
+        md = """
+```
+This is text that _should_ remain
+the **same** even with inline stuff
+```
+    """
+
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        print(html)
+        self.assertEqual(
+            html,
+            "<div><pre><code>This is text that _should_ remain\nthe **same** even with inline stuff\n</code></pre></div>",
+        )
+
+    def test_single_paragraph(self):
+        node = markdown_to_html_node("just text")
+        self.assertEqual(node.to_html(), "<div><p>just text</p></div>")
+
+    def test_root_is_a_div(self):
+        node = markdown_to_html_node("hello")
+        self.assertEqual(node.tag, "div")
+
+    def test_empty_markdown_yields_childless_div(self):
+        # No blocks -> a div with no children (to_html() would raise, so
+        # inspect the structure instead).
+        node = markdown_to_html_node("")
+        self.assertEqual(node.tag, "div")
+        self.assertEqual(node.children, [])
+
+    def test_headings_all_levels(self):
+        md = "# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6"
+        node = markdown_to_html_node(md)
+        self.assertEqual(
+            node.to_html(),
+            "<div><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6></div>",
+        )
+
+    def test_heading_with_inline_formatting(self):
+        node = markdown_to_html_node("## A **bold** heading")
+        self.assertEqual(
+            node.to_html(),
+            "<div><h2>A <b>bold</b> heading</h2></div>",
+        )
+
+    def test_quote_multiline(self):
+        node = markdown_to_html_node("> a quote\n> second line")
+        self.assertEqual(
+            node.to_html(),
+            "<div><blockquote>a quote\nsecond line</blockquote></div>",
+        )
+
+    def test_unordered_list(self):
+        node = markdown_to_html_node("- one\n- two\n- three")
+        self.assertEqual(
+            node.to_html(),
+            "<div><ul><li>one</li><li>two</li><li>three</li></ul></div>",
+        )
+
+    def test_ordered_list(self):
+        node = markdown_to_html_node("1. one\n2. two\n3. three")
+        self.assertEqual(
+            node.to_html(),
+            "<div><ol><li>one</li><li>two</li><li>three</li></ol></div>",
+        )
+
+    def test_unordered_list_with_inline_formatting(self):
+        node = markdown_to_html_node("- **a**\n- _b_\n- `c`")
+        self.assertEqual(
+            node.to_html(),
+            "<div><ul><li><b>a</b></li><li><i>b</i></li><li><code>c</code></li></ul></div>",
+        )
+
+    def test_multiple_blocks_kept_separate(self):
+        md = "First paragraph\n\nSecond paragraph"
+        node = markdown_to_html_node(md)
+        self.assertEqual(
+            node.to_html(),
+            "<div><p>First paragraph</p><p>Second paragraph</p></div>",
+        )
+
+    def test_blank_lines_between_blocks_do_not_create_empty_nodes(self):
+        # Extra blank lines should be collapsed away, not turned into empty <p>.
+        md = "one\n\n\n\ntwo"
+        node = markdown_to_html_node(md)
+        self.assertEqual(
+            node.to_html(),
+            "<div><p>one</p><p>two</p></div>",
+        )
+
+    def test_full_document_mixed_blocks_in_order(self):
+        md = """# Title
+
+This is a paragraph with **bold** and _italic_ and a [link](https://boot.dev).
+
+- first item
+- second item
+
+1. step one
+2. step two
+
+> a wise quote
+
+```
+code stays _literal_
+```"""
+        node = markdown_to_html_node(md)
+        self.assertEqual(
+            node.to_html(),
+            "<div>"
+            "<h1>Title</h1>"
+            '<p>This is a paragraph with <b>bold</b> and <i>italic</i> and a <a href="https://boot.dev">link</a>.</p>'
+            "<ul><li>first item</li><li>second item</li></ul>"
+            "<ol><li>step one</li><li>step two</li></ol>"
+            "<blockquote>a wise quote</blockquote>"
+            "<pre><code>code stays _literal_\n</code></pre>"
+            "</div>",
         )
 
 

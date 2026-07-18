@@ -117,8 +117,9 @@ def block_to_html_node(block: str, block_type: BlockType) -> HTMLNode:
         case BlockType.CODE:
             raw_lines = markdown_to_raw_lines(block, BlockType.CODE)
             child_text = "\n".join(raw_lines)
-            child_text_nodes = [TextNode(child_text, TextType.TEXT)]
+            child_text_nodes = [TextNode(child_text, TextType.TEXT)] #bypass the inline md parsing :D
             child_html_nodes = [text_node_to_html_node(node) for node in child_text_nodes]
+            child_html_nodes[-1].value += "\n" #trailing new line as per markdown functionality
             return ParentNode("pre", [ParentNode("code", child_html_nodes)])
 
         case BlockType.UNORDERED_LIST:
@@ -139,8 +140,11 @@ def block_to_html_node(block: str, block_type: BlockType) -> HTMLNode:
                 li_nodes.append(ParentNode("li", child_html_nodes))
             return ParentNode("ol", li_nodes)
 
-# def markdown_to_html_nodes(markdown)HTMLNode:
-#     blocks = markdown_to_blocks(markdown)
-#     for block in blocks:
-#         block_type = block_to_block_type(block)
-#         html_node = block_to_html_node(block, block_type)
+def markdown_to_html_node(markdown) -> HTMLNode:
+    nodes = []
+    blocks = markdown_to_blocks(markdown)
+    for block in blocks:
+        block_type = block_to_block_type(block)
+        html_node = block_to_html_node(block, block_type)
+        nodes.append(html_node)
+    return ParentNode("div", nodes)
