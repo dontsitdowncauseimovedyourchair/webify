@@ -1,6 +1,7 @@
 import unittest
+
 from textnode import TextNode, TextType, text_node_to_html_node, split_nodes_delimiter, extract_markdown_images, \
-    extract_markdown_links, split_nodes_image, split_nodes_link
+    extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes
 from leafnode import LeafNode
 
 class TestTextNode(unittest.TestCase):
@@ -192,11 +193,9 @@ class TestSplitNodesDelimiter(unittest.TestCase):
         self.assertEqual(new_nodes, [
             TextNode("say ", TextType.TEXT),
             TextNode("hi", TextType.CODE),
-            TextNode("", TextType.TEXT),
             TextNode("stay bold", TextType.BOLD),
             TextNode("and ", TextType.TEXT),
             TextNode("bye", TextType.CODE),
-            TextNode("", TextType.TEXT),
         ])
 
     def test_plain_text_with_no_delimiter_unchanged(self):
@@ -310,7 +309,6 @@ class TestSplitImage(unittest.TestCase):
             TextType.TEXT,
         )
         new_nodes = split_nodes_image([node])
-        print(new_nodes)
         self.assertListEqual(
             [
                 TextNode("This is text with an ", TextType.TEXT),
@@ -435,6 +433,128 @@ class TestSplitLink(unittest.TestCase):
             split_nodes_link([node]),
         )
 
+class TestTextToTextNode(unittest.TestCase):
+    def test_text_to_text_node_all(self):
+        text="This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
+        new_nodes = text_to_textnodes(text)
+        self.assertEqual(new_nodes, [
+            TextNode("This is ", TextType.TEXT),
+            TextNode("text", TextType.BOLD),
+            TextNode(" with an ", TextType.TEXT),
+            TextNode("italic", TextType.ITALIC),
+            TextNode(" word and a ", TextType.TEXT),
+            TextNode("code block", TextType.CODE),
+            TextNode(" and an ", TextType.TEXT),
+            TextNode("obi wan image", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"),
+            TextNode(" and a ", TextType.TEXT),
+            TextNode("link", TextType.LINK, "https://boot.dev"),
+        ])
+
+    def test_plain_text_only(self):
+        self.assertEqual(
+            text_to_textnodes("just plain text"),
+            [TextNode("just plain text", TextType.TEXT)],
+        )
+
+    def test_empty_string(self):
+        # Empty input yields no nodes: the single "" segment is filtered out.
+        self.assertEqual(text_to_textnodes(""), [])
+
+    def test_bold_only(self):
+        self.assertEqual(
+            text_to_textnodes("This is **bold** text"),
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("bold", TextType.BOLD),
+                TextNode(" text", TextType.TEXT),
+            ],
+        )
+
+    def test_italic_only(self):
+        self.assertEqual(
+            text_to_textnodes("This is _italic_ text"),
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+                TextNode(" text", TextType.TEXT),
+            ],
+        )
+
+    def test_code_only(self):
+        self.assertEqual(
+            text_to_textnodes("This is `code` text"),
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("code", TextType.CODE),
+                TextNode(" text", TextType.TEXT),
+            ],
+        )
+
+    def test_image_only(self):
+        self.assertEqual(
+            text_to_textnodes("![img](https://a.com/i.png)"),
+            [TextNode("img", TextType.IMAGE, "https://a.com/i.png")],
+        )
+
+    def test_link_only(self):
+        self.assertEqual(
+            text_to_textnodes("[link](https://boot.dev)"),
+            [TextNode("link", TextType.LINK, "https://boot.dev")],
+        )
+
+    def test_bold_at_start_no_leading_empty_node(self):
+        # A marker at position 0 must NOT produce an empty leading TEXT node.
+        self.assertEqual(
+            text_to_textnodes("**bold** at start"),
+            [
+                TextNode("bold", TextType.BOLD),
+                TextNode(" at start", TextType.TEXT),
+            ],
+        )
+
+    def test_bold_at_end_no_trailing_empty_node(self):
+        self.assertEqual(
+            text_to_textnodes("ends with **bold**"),
+            [
+                TextNode("ends with ", TextType.TEXT),
+                TextNode("bold", TextType.BOLD),
+            ],
+        )
+
+    def test_multiple_of_same_type(self):
+        self.assertEqual(
+            text_to_textnodes("**a** and **b**"),
+            [
+                TextNode("a", TextType.BOLD),
+                TextNode(" and ", TextType.TEXT),
+                TextNode("b", TextType.BOLD),
+            ],
+        )
+
+    def test_image_and_link_together(self):
+        self.assertEqual(
+            text_to_textnodes(
+                "![img](https://a.com/i.png) then [link](https://boot.dev)"
+            ),
+            [
+                TextNode("img", TextType.IMAGE, "https://a.com/i.png"),
+                TextNode(" then ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+            ],
+        )
+
+    def test_all_delimiter_types_together(self):
+        self.assertEqual(
+            text_to_textnodes("a **b** c _d_ e `f`"),
+            [
+                TextNode("a ", TextType.TEXT),
+                TextNode("b", TextType.BOLD),
+                TextNode(" c ", TextType.TEXT),
+                TextNode("d", TextType.ITALIC),
+                TextNode(" e ", TextType.TEXT),
+                TextNode("f", TextType.CODE),
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()
