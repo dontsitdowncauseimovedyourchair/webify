@@ -34,7 +34,15 @@ def generate_page(from_path, template_path, dest_path):
     with open(dest_path, "w") as f:
         f.write(full_html_page)
 
-
+def generate_pages_recursively(dir_path_content, template_path, dest_root_path):
+    files_dirs = os.listdir(dir_path_content)
+    for fs_item in files_dirs:
+        fs_item_path = os.path.join(dir_path_content, fs_item)
+        if os.path.isdir(fs_item_path):
+            generate_pages_recursively(fs_item_path, template_path, os.path.join(dest_root_path, fs_item))
+        else:
+            if fs_item_path.endswith(".md"):
+                generate_page(fs_item_path, template_path, os.path.join(dest_root_path, fs_item.replace(".md", ".html")))
 
 def main():
     copy_from_static_to_public()
@@ -47,7 +55,7 @@ def main():
     template_file = current_dir.parent / "template.html"
     result_file = public_dir / "index.html"
 
-    generate_page(markdown_file, template_file, result_file)
+    generate_pages_recursively(content_dir, template_file, public_dir)
 
 if __name__ == "__main__":
     main()
