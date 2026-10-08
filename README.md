@@ -13,7 +13,7 @@ Here's a site generated using the parser: [revolutionary site generated](https:/
 - **Python**
 - And that's it :D
 
-## Quick start
+## Quick Start
 
 From the project root:
 
