@@ -87,3 +87,9 @@ Unit tests were written extensively, TDD is key!.
 
 ## AI usage
 The generator is hand-crafted, no AI involved in the making of the project aside from tests, some tests are AI-generated because there's more beautiful things to do in life than having to sit down and write unit tests. (And boy did this project require a lot of tests)
+
+## Motivation
+
+## Usage
+
+## Contributing
